@@ -31,6 +31,8 @@ public class AddNoteActivity extends AppCompatActivity {
     FirebaseUser user;
     FirebaseFirestore db;
 
+    String noteId = null; // null = new note, otherwise edit existing
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,9 +50,8 @@ public class AddNoteActivity extends AppCompatActivity {
             int id = item.getItemId();
 
             if (id == R.id.nav_notes) {
-                finish(); // 🔥 GO BACK
-            }
-            else if (id == R.id.nav_home) {
+                finish();
+            } else if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
             }
 
@@ -69,6 +70,14 @@ public class AddNoteActivity extends AppCompatActivity {
             return;
         }
 
+        // Check if editing
+        Intent intent = getIntent();
+        if (intent.hasExtra("noteId")) {
+            noteId = intent.getStringExtra("noteId");
+            String noteText = intent.getStringExtra("noteText");
+            editTextNote.setText(noteText);
+        }
+
         btnSave.setOnClickListener(v -> saveNote());
     }
 
@@ -80,20 +89,44 @@ public class AddNoteActivity extends AppCompatActivity {
             return;
         }
 
-        Map<String, Object> note = new HashMap<>();
-        note.put("text", text);
-        note.put("timestamp", System.currentTimeMillis());
+        if (noteId == null) {
+            // New note
+            Map<String, Object> note = new HashMap<>();
+            note.put("text", text);
+            note.put("timestamp", System.currentTimeMillis());
 
-        db.collection("users")
-                .document(user.getUid())
-                .collection("notes")
-                .add(note)
-                .addOnSuccessListener(d -> {
-                    Toast.makeText(this, "Note saved", Toast.LENGTH_SHORT).show();
-                    finish(); // ✅ RETURNS TO NotesActivity
-                })
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Save failed", Toast.LENGTH_SHORT).show()
-                );
+            db.collection("users")
+                    .document(user.getUid())
+                    .collection("notes")
+                    .add(note)
+                    .addOnSuccessListener(d -> {
+                        Toast.makeText(this, "Note saved", Toast.LENGTH_SHORT).show();
+                        setResult(RESULT_OK);
+                        finish();
+                    })
+                    .addOnFailureListener(e ->
+                            Toast.makeText(this, "Save failed", Toast.LENGTH_SHORT).show()
+                    );
+
+        } else {
+            // Edit existing note
+            Map<String, Object> update = new HashMap<>();
+            update.put("text", text);
+
+            db.collection("users")
+                    .document(user.getUid())
+                    .collection("notes")
+                    .document(noteId)
+                    .update(update)
+                    .addOnSuccessListener(a -> {
+                        Toast.makeText(this, "Note updated", Toast.LENGTH_SHORT).show();
+                        setResult(RESULT_OK);
+                        finish();
+                    })
+                    .addOnFailureListener(e ->
+                            Toast.makeText(this, "Update failed", Toast.LENGTH_SHORT).show()
+                    );
+        }
     }
 }
+
