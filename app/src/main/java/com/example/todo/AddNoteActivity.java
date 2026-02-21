@@ -2,6 +2,7 @@ package com.example.todo;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -25,19 +26,21 @@ public class AddNoteActivity extends AppCompatActivity {
     NavigationView navigationView;
     MaterialToolbar toolbar;
 
+    EditText editTextTitle;
     EditText editTextNote;
-    Button btnSave;
+    Button btnSave, btnGoBack;
 
     FirebaseUser user;
     FirebaseFirestore db;
 
-    String noteId = null; // null = new note, otherwise edit existing
+    String noteId = null; // null = new note, otherwise editing existing
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_note);
 
+        // Drawer setup
         drawerLayout = findViewById(R.id.drawer_layout_add);
         navigationView = findViewById(R.id.navigation_view_add);
         toolbar = findViewById(R.id.toolbar_add);
@@ -48,53 +51,58 @@ public class AddNoteActivity extends AppCompatActivity {
 
         navigationView.setNavigationItemSelectedListener(item -> {
             int id = item.getItemId();
-
-            if (id == R.id.nav_notes) {
-                finish();
-            } else if (id == R.id.nav_home) {
-                startActivity(new Intent(this, MainActivity.class));
+            if (id == R.id.nav_notes || id == R.id.nav_home) {
+                finish(); // no warning, just close
             }
-
             drawerLayout.closeDrawer(GravityCompat.START);
             return true;
         });
 
+        // UI elements
+        editTextTitle = findViewById(R.id.editTextTitle);
         editTextNote = findViewById(R.id.editTextNote);
         btnSave = findViewById(R.id.btnSaveNote);
+        btnGoBack = findViewById(R.id.btnGoBack);
 
         db = FirebaseFirestore.getInstance();
         user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) finish();
 
-        if (user == null) {
-            finish();
-            return;
-        }
-
-        // Check if editing
+        // Load existing note if editing
         Intent intent = getIntent();
         if (intent.hasExtra("noteId")) {
             noteId = intent.getStringExtra("noteId");
+            String noteTitle = intent.getStringExtra("noteTitle");
             String noteText = intent.getStringExtra("noteText");
+
+            editTextTitle.setText(noteTitle);
             editTextNote.setText(noteText);
         }
 
         btnSave.setOnClickListener(v -> saveNote());
+
+        btnGoBack.setOnClickListener(v -> finish()); // go back immediately, no warning
     }
 
     private void saveNote() {
+        String title = editTextTitle.getText().toString().trim();
         String text = editTextNote.getText().toString().trim();
 
-        if (text.isEmpty()) {
+        if (TextUtils.isEmpty(title)) {
+            title = "Untitled Note";
+        }
+        if (TextUtils.isEmpty(text)) {
             Toast.makeText(this, "Note cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        Map<String, Object> note = new HashMap<>();
+        note.put("title", title);
+        note.put("text", text);
+        note.put("timestamp", System.currentTimeMillis());
+
         if (noteId == null) {
             // New note
-            Map<String, Object> note = new HashMap<>();
-            note.put("text", text);
-            note.put("timestamp", System.currentTimeMillis());
-
             db.collection("users")
                     .document(user.getUid())
                     .collection("notes")
@@ -107,17 +115,13 @@ public class AddNoteActivity extends AppCompatActivity {
                     .addOnFailureListener(e ->
                             Toast.makeText(this, "Save failed", Toast.LENGTH_SHORT).show()
                     );
-
         } else {
             // Edit existing note
-            Map<String, Object> update = new HashMap<>();
-            update.put("text", text);
-
             db.collection("users")
                     .document(user.getUid())
                     .collection("notes")
                     .document(noteId)
-                    .update(update)
+                    .update(note)
                     .addOnSuccessListener(a -> {
                         Toast.makeText(this, "Note updated", Toast.LENGTH_SHORT).show();
                         setResult(RESULT_OK);
@@ -128,5 +132,6 @@ public class AddNoteActivity extends AppCompatActivity {
                     );
         }
     }
-}
 
+
+}

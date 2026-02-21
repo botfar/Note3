@@ -27,25 +27,61 @@
             android:layout_height="match_parent"
             android:layout_marginTop="?attr/actionBarSize">
 
-            <EditText
-                android:id="@+id/editTextNote"
+            <LinearLayout
+                android:orientation="vertical"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:hint="Write your note..."
-                android:gravity="top"
-                android:padding="16dp"
-                android:background="@android:color/transparent"/>
+                android:padding="16dp">
 
-            <Button
-                android:id="@+id/btnSaveNote"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Save"
-                android:layout_gravity="bottom|end"
-                android:layout_margin="16dp"
-                android:backgroundTint="?attr/colorPrimary"
-                android:textColor="@android:color/white"
-                android:elevation="4dp"/>
+                <!-- Title -->
+                <EditText
+                    android:id="@+id/editTextTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Title"
+                    android:textSize="18sp"
+                    android:inputType="textCapWords"
+                    android:paddingBottom="8dp"/>
+
+                <!-- Note body -->
+                <EditText
+                    android:id="@+id/editTextNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:hint="Write your note..."
+                    android:gravity="top"
+                    android:background="@android:color/transparent"
+                    android:inputType="textMultiLine"/>
+
+                <!-- Buttons row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="end"
+                    android:layout_marginTop="8dp">
+
+                    <Button
+                        android:id="@+id/btnGoBack"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Go Back"
+                        android:layout_marginEnd="8dp"
+                        android:backgroundTint="@android:color/darker_gray"
+                        android:textColor="@android:color/white"/>
+
+                    <Button
+                        android:id="@+id/btnSaveNote"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Save"
+                        android:backgroundTint="?attr/colorPrimary"
+                        android:textColor="@android:color/white"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
         </FrameLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -23,9 +23,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 public class NotesActivity extends AppCompatActivity {
 
@@ -36,8 +34,8 @@ public class NotesActivity extends AppCompatActivity {
     ListView listView;
     Button btnAdd;
 
-    ArrayList<String> notes = new ArrayList<>();
-    ArrayList<String> allNotes = new ArrayList<>();
+    ArrayList<String> noteTitles = new ArrayList<>(); // Displayed titles
+    ArrayList<String> allTitles = new ArrayList<>();  // For search
     ArrayList<String> noteIds = new ArrayList<>();
     ArrayAdapter<String> adapter;
 
@@ -51,11 +49,9 @@ public class NotesActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_notes);
 
-        // Drawer setup
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         toolbar = findViewById(R.id.toolbar);
-
         setSupportActionBar(toolbar);
 
         toolbar.setNavigationOnClickListener(v ->
@@ -64,47 +60,52 @@ public class NotesActivity extends AppCompatActivity {
 
         navigationView.setNavigationItemSelectedListener(item -> {
             int id = item.getItemId();
-
             if (id == R.id.nav_home) {
                 startActivity(new Intent(this, MainActivity.class));
             }
-
             drawerLayout.closeDrawer(GravityCompat.START);
             return true;
         });
 
-        // Notes UI
         listView = findViewById(R.id.listViewNotes);
         btnAdd = findViewById(R.id.btnAddNote);
 
         adapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_list_item_1,
-                notes);
+                noteTitles);
         listView.setAdapter(adapter);
 
         db = FirebaseFirestore.getInstance();
         user = FirebaseAuth.getInstance().getCurrentUser();
-
         if (user == null) {
             startActivity(new Intent(this, LoginActivity.class));
             finish();
             return;
         }
 
-        // Open AddNoteActivity to add a new note
         btnAdd.setOnClickListener(v ->
                 startActivityForResult(new Intent(this, AddNoteActivity.class), REQUEST_ADD_NOTE)
         );
 
-        // Edit note: opens AddNoteActivity with noteId and text
         listView.setOnItemClickListener((p, v, pos, id) -> {
             Intent intent = new Intent(this, AddNoteActivity.class);
-            intent.putExtra("noteId", noteIds.get(pos));
-            intent.putExtra("noteText", notes.get(pos));
-            startActivityForResult(intent, REQUEST_ADD_NOTE);
+            String docId = noteIds.get(pos);
+
+            db.collection("users").document(user.getUid())
+                    .collection("notes").document(docId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (doc.exists()) {
+                            String text = doc.getString("text");
+                            String title = doc.getString("title");
+                            intent.putExtra("noteId", docId);
+                            intent.putExtra("noteText", text);
+                            intent.putExtra("noteTitle", title);
+                            startActivityForResult(intent, REQUEST_ADD_NOTE);
+                        }
+                    });
         });
 
-        // Long click to delete
         listView.setOnItemLongClickListener((p, v, pos, id) -> {
             showDeleteDialog(pos);
             return true;
@@ -117,7 +118,6 @@ public class NotesActivity extends AppCompatActivity {
         loadNotes();
     }
 
-    // Refresh notes after returning from AddNoteActivity
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -126,7 +126,6 @@ public class NotesActivity extends AppCompatActivity {
         }
     }
 
-    // 🔹 Load notes from Firestore
     private void loadNotes() {
         db.collection("users")
                 .document(user.getUid())
@@ -134,16 +133,18 @@ public class NotesActivity extends AppCompatActivity {
                 .orderBy("timestamp")
                 .get()
                 .addOnSuccessListener(result -> {
-
-                    notes.clear();
-                    allNotes.clear();
+                    noteTitles.clear();
+                    allTitles.clear();
                     noteIds.clear();
 
                     for (QueryDocumentSnapshot doc : result) {
-                        String text = doc.getString("text");
+                        String title = doc.getString("title");
+                        if (title == null || title.trim().isEmpty()) {
+                            title = "Untitled Note";
+                        }
 
-                        notes.add(text);
-                        allNotes.add(text);
+                        noteTitles.add(title);
+                        allTitles.add(title);
                         noteIds.add(doc.getId());
                     }
 
@@ -156,14 +157,12 @@ public class NotesActivity extends AppCompatActivity {
                 );
     }
 
-    // 🔍 Toolbar Search
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_notes, menu);
 
         MenuItem searchItem = menu.findItem(R.id.action_search);
         SearchView searchView = (SearchView) searchItem.getActionView();
-
         searchView.setQueryHint("Search notes...");
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
@@ -183,17 +182,16 @@ public class NotesActivity extends AppCompatActivity {
         return true;
     }
 
-    // 🔹 Filter notes locally
     private void filterNotes(String text) {
-        notes.clear();
+        noteTitles.clear();
 
         if (text == null || text.isEmpty()) {
-            notes.addAll(allNotes);
+            noteTitles.addAll(allTitles);
         } else {
             String lower = text.toLowerCase(Locale.getDefault());
-            for (String note : allNotes) {
-                if (note.toLowerCase(Locale.getDefault()).contains(lower)) {
-                    notes.add(note);
+            for (String title : allTitles) {
+                if (title.toLowerCase(Locale.getDefault()).contains(lower)) {
+                    noteTitles.add(title);
                 }
             }
         }
@@ -201,21 +199,18 @@ public class NotesActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    // 🔹 Delete dialog (optimistic UI)
     private void showDeleteDialog(int position) {
         new AlertDialog.Builder(this)
                 .setTitle("Delete Note")
                 .setMessage("Delete this note?")
                 .setPositiveButton("Yes", (d, w) -> {
-                    String docId = noteIds.get(position); // save before removal
+                    String docId = noteIds.get(position);
 
-                    // Remove immediately from UI
-                    notes.remove(position);
-                    allNotes.remove(position);
+                    noteTitles.remove(position);
+                    allTitles.remove(position);
                     noteIds.remove(position);
                     adapter.notifyDataSetChanged();
 
-                    // Delete from Firestore
                     db.collection("users")
                             .document(user.getUid())
                             .collection("notes")
@@ -223,7 +218,7 @@ public class NotesActivity extends AppCompatActivity {
                             .delete()
                             .addOnFailureListener(e -> {
                                 Toast.makeText(this, "Delete failed", Toast.LENGTH_SHORT).show();
-                                loadNotes(); // revert if failed
+                                loadNotes();
                             });
                 })
                 .setNegativeButton("Cancel", null)
