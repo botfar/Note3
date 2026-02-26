@@ -1,24 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Home -->
     <item
         android:id="@+id/nav_home"
         android:title="Home"
         android:icon="@android:drawable/ic_menu_view"/>
 
+    <!-- Notes -->
     <item
         android:id="@+id/nav_notes"
         android:title="Notes"
         android:icon="@android:drawable/ic_menu_edit"/>
 
+    <!-- Login (visible only when user is NOT logged in) -->
     <item
         android:id="@+id/nav_login"
         android:title="Log In"
         android:icon="@android:drawable/ic_menu_myplaces"/>
 
+    <!-- Sign Up (visible only when user is NOT logged in) -->
     <item
         android:id="@+id/nav_signup"
         android:title="Sign Up"
         android:icon="@android:drawable/ic_menu_add"/>
 
+    <!-- Logout (visible only when user IS logged in) -->
+    <item
+        android:id="@+id/nav_logout"
+        android:title="Logout"
+        android:icon="@android:drawable/ic_lock_power_off"/>
 </menu>

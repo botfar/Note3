@@ -7,24 +7,19 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
-
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
-public class AddNoteActivity extends AppCompatActivity {
-
-    DrawerLayout drawerLayout;
-    NavigationView navigationView;
-    MaterialToolbar toolbar;
+public class AddNoteActivity extends BaseActivity {
 
     EditText editTextTitle;
     EditText editTextNote;
@@ -40,23 +35,8 @@ public class AddNoteActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_note);
 
-        // Drawer setup
-        drawerLayout = findViewById(R.id.drawer_layout_add);
-        navigationView = findViewById(R.id.navigation_view_add);
-        toolbar = findViewById(R.id.toolbar_add);
-
-        toolbar.setNavigationOnClickListener(v ->
-                drawerLayout.openDrawer(GravityCompat.START)
-        );
-
-        navigationView.setNavigationItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_notes || id == R.id.nav_home) {
-                finish(); // no warning, just close
-            }
-            drawerLayout.closeDrawer(GravityCompat.START);
-            return true;
-        });
+        // Initialize drawer & toolbar from BaseActivity
+        setupDrawer();
 
         // UI elements
         editTextTitle = findViewById(R.id.editTextTitle);
@@ -66,7 +46,7 @@ public class AddNoteActivity extends AppCompatActivity {
 
         db = FirebaseFirestore.getInstance();
         user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) finish();
+        if (user == null) finish(); // ensure user is logged in
 
         // Load existing note if editing
         Intent intent = getIntent();
@@ -80,8 +60,7 @@ public class AddNoteActivity extends AppCompatActivity {
         }
 
         btnSave.setOnClickListener(v -> saveNote());
-
-        btnGoBack.setOnClickListener(v -> finish()); // go back immediately, no warning
+        btnGoBack.setOnClickListener(v -> finish());
     }
 
     private void saveNote() {
@@ -96,10 +75,16 @@ public class AddNoteActivity extends AppCompatActivity {
             return;
         }
 
+        // Get current date and time
+        Date now = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+        String formattedDate = sdf.format(now);
+
         Map<String, Object> note = new HashMap<>();
         note.put("title", title);
         note.put("text", text);
-        note.put("timestamp", System.currentTimeMillis());
+        note.put("timestamp", System.currentTimeMillis()); // for sorting
+        note.put("dateTime", formattedDate);               // readable date & hour
 
         if (noteId == null) {
             // New note
@@ -132,6 +117,4 @@ public class AddNoteActivity extends AppCompatActivity {
                     );
         }
     }
-
-
 }

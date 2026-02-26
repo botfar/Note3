@@ -9,34 +9,27 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AlertDialog;
 
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.Locale;
 
-public class NotesActivity extends AppCompatActivity {
-
-    DrawerLayout drawerLayout;
-    NavigationView navigationView;
-    MaterialToolbar toolbar;
+public class NotesActivity extends BaseActivity {
 
     ListView listView;
     Button btnAdd;
 
-    ArrayList<String> noteTitles = new ArrayList<>(); // Displayed titles
-    ArrayList<String> allTitles = new ArrayList<>();  // For search
+    ArrayList<String> noteTitles = new ArrayList<>();
+    ArrayList<String> allTitles = new ArrayList<>();
     ArrayList<String> noteIds = new ArrayList<>();
+
     ArrayAdapter<String> adapter;
 
     FirebaseUser user;
@@ -44,39 +37,30 @@ public class NotesActivity extends AppCompatActivity {
 
     private static final int REQUEST_ADD_NOTE = 1;
 
+    // 🔥 Current sort field (default = time)
+    private String currentSortField = "timestamp";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_notes);
 
-        drawerLayout = findViewById(R.id.drawer_layout);
-        navigationView = findViewById(R.id.navigation_view);
-        toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-
-        toolbar.setNavigationOnClickListener(v ->
-                drawerLayout.openDrawer(GravityCompat.START)
-        );
-
-        navigationView.setNavigationItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                startActivity(new Intent(this, MainActivity.class));
-            }
-            drawerLayout.closeDrawer(GravityCompat.START);
-            return true;
-        });
+        setupDrawer(); // from BaseActivity: sets toolbar, drawer, nav listener
 
         listView = findViewById(R.id.listViewNotes);
         btnAdd = findViewById(R.id.btnAddNote);
 
-        adapter = new ArrayAdapter<>(this,
+        adapter = new ArrayAdapter<>(
+                this,
                 android.R.layout.simple_list_item_1,
-                noteTitles);
+                noteTitles
+        );
+
         listView.setAdapter(adapter);
 
         db = FirebaseFirestore.getInstance();
         user = FirebaseAuth.getInstance().getCurrentUser();
+
         if (user == null) {
             startActivity(new Intent(this, LoginActivity.class));
             finish();
@@ -84,23 +68,26 @@ public class NotesActivity extends AppCompatActivity {
         }
 
         btnAdd.setOnClickListener(v ->
-                startActivityForResult(new Intent(this, AddNoteActivity.class), REQUEST_ADD_NOTE)
+                startActivityForResult(
+                        new Intent(this, AddNoteActivity.class),
+                        REQUEST_ADD_NOTE
+                )
         );
 
         listView.setOnItemClickListener((p, v, pos, id) -> {
             Intent intent = new Intent(this, AddNoteActivity.class);
             String docId = noteIds.get(pos);
 
-            db.collection("users").document(user.getUid())
-                    .collection("notes").document(docId)
+            db.collection("users")
+                    .document(user.getUid())
+                    .collection("notes")
+                    .document(docId)
                     .get()
                     .addOnSuccessListener(doc -> {
                         if (doc.exists()) {
-                            String text = doc.getString("text");
-                            String title = doc.getString("title");
                             intent.putExtra("noteId", docId);
-                            intent.putExtra("noteText", text);
-                            intent.putExtra("noteTitle", title);
+                            intent.putExtra("noteText", doc.getString("text"));
+                            intent.putExtra("noteTitle", doc.getString("title"));
                             startActivityForResult(intent, REQUEST_ADD_NOTE);
                         }
                     });
@@ -118,19 +105,16 @@ public class NotesActivity extends AppCompatActivity {
         loadNotes();
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_ADD_NOTE && resultCode == RESULT_OK) {
-            loadNotes();
-        }
-    }
-
     private void loadNotes() {
+        Query.Direction direction =
+                currentSortField.equals("timestamp")
+                        ? Query.Direction.DESCENDING
+                        : Query.Direction.ASCENDING;
+
         db.collection("users")
                 .document(user.getUid())
                 .collection("notes")
-                .orderBy("timestamp")
+                .orderBy(currentSortField, direction)
                 .get()
                 .addOnSuccessListener(result -> {
                     noteTitles.clear();
@@ -139,15 +123,20 @@ public class NotesActivity extends AppCompatActivity {
 
                     for (QueryDocumentSnapshot doc : result) {
                         String title = doc.getString("title");
+                        String dateTime = doc.getString("dateTime");
+
                         if (title == null || title.trim().isEmpty()) {
                             title = "Untitled Note";
                         }
+                        if (dateTime == null) {
+                            dateTime = "";
+                        }
 
-                        noteTitles.add(title);
-                        allTitles.add(title);
+                        String displayText = title + "\n" + dateTime;
+                        noteTitles.add(displayText);
+                        allTitles.add(displayText);
                         noteIds.add(doc.getId());
                     }
-
                     adapter.notifyDataSetChanged();
                 })
                 .addOnFailureListener(e ->
@@ -159,6 +148,8 @@ public class NotesActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        // Use BaseActivity's menu handling and add search functionality here
+        super.onCreateOptionsMenu(menu);
         getMenuInflater().inflate(R.menu.menu_notes, menu);
 
         MenuItem searchItem = menu.findItem(R.id.action_search);
@@ -182,16 +173,39 @@ public class NotesActivity extends AppCompatActivity {
         return true;
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        int id = item.getItemId();
+
+        if (id == R.id.action_sort_time) {
+            currentSortField = "timestamp";
+            loadNotes();
+            Toast.makeText(this, "Sorted by time", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+
+        if (id == R.id.action_sort_title) {
+            currentSortField = "title";
+            loadNotes();
+            Toast.makeText(this, "Sorted by title", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
     private void filterNotes(String text) {
+
         noteTitles.clear();
 
         if (text == null || text.isEmpty()) {
             noteTitles.addAll(allTitles);
         } else {
             String lower = text.toLowerCase(Locale.getDefault());
-            for (String title : allTitles) {
-                if (title.toLowerCase(Locale.getDefault()).contains(lower)) {
-                    noteTitles.add(title);
+            for (String item : allTitles) {
+                if (item.toLowerCase(Locale.getDefault()).contains(lower)) {
+                    noteTitles.add(item);
                 }
             }
         }
@@ -217,7 +231,9 @@ public class NotesActivity extends AppCompatActivity {
                             .document(docId)
                             .delete()
                             .addOnFailureListener(e -> {
-                                Toast.makeText(this, "Delete failed", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(this,
+                                        "Delete failed",
+                                        Toast.LENGTH_SHORT).show();
                                 loadNotes();
                             });
                 })

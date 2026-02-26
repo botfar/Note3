@@ -1,9 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Search -->
     <item
         android:id="@+id/action_search"
         android:title="Search"
         android:icon="@android:drawable/ic_menu_search"
         app:showAsAction="always|collapseActionView"
         app:actionViewClass="androidx.appcompat.widget.SearchView" />
+
+    <!-- Sort by Time -->
+    <item
+        android:id="@+id/action_sort_time"
+        android:title="Sort by Time"
+        app:showAsAction="never" />
+
+    <!-- Sort by Title -->
+    <item
+        android:id="@+id/action_sort_title"
+        android:title="Sort by Title"
+        app:showAsAction="never" />
+
 </menu>

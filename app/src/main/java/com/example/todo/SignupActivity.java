@@ -7,19 +7,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
-
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 
-public class SignupActivity extends AppCompatActivity {
-
-    DrawerLayout drawerLayout;
-    NavigationView navigationView;
-    MaterialToolbar toolbar;
+public class SignupActivity extends BaseActivity {
 
     FirebaseAuth auth;
 
@@ -28,36 +18,11 @@ public class SignupActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
 
+        // Setup drawer/menu from BaseActivity
+        setupDrawer();
+
         // Firebase
         auth = FirebaseAuth.getInstance();
-
-        // Drawer
-        drawerLayout = findViewById(R.id.drawer_layout);
-        navigationView = findViewById(R.id.navigation_view);
-        toolbar = findViewById(R.id.toolbar);
-
-        // Open drawer
-        toolbar.setNavigationOnClickListener(v ->
-                drawerLayout.openDrawer(GravityCompat.START)
-        );
-
-        // Menu navigation
-        navigationView.setNavigationItemSelectedListener(item -> {
-            int id = item.getItemId();
-
-            if (id == R.id.nav_home) {
-                startActivity(new Intent(this, MainActivity.class));
-            } else if (id == R.id.nav_notes) {
-                startActivity(new Intent(this, NotesActivity.class));
-            } else if (id == R.id.nav_login) {
-                startActivity(new Intent(this, LoginActivity.class));
-            } else if (id == R.id.nav_signup) {
-                // Already here
-            }
-
-            drawerLayout.closeDrawer(GravityCompat.START);
-            return true;
-        });
 
         // Sign up logic
         EditText nameEditText = findViewById(R.id.nameEditText);
